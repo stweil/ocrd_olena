@@ -3,9 +3,17 @@ PYTHON ?= python3
 PIP ?= pip3
 GIT_SUBMODULE = git submodule
 PYTEST_ARGS ?= -vv
-
+HOMEBREW_PREFIX = $(shell brew --prefix 2>/dev/null)
+HOMEBREW_IM = $(wildcard $(HOMEBREW_PREFIX)/opt/imagemagick@6)
+ifeq ($(HOMEBREW_IM),)
 export IMAGEMAGICKXX_CFLAGS ?= $(shell pkg-config --cflags Magick++-im6)
 export IMAGEMAGICKXX_LIBS ?= $(shell pkg-config --libs Magick++-im6)
+else
+IMAGEMAGICK = Magick++-6.Q16
+export PKG_CONFIG_PATH=$(HOMEBREW_IM)/lib/pkgconfig
+export IMAGEMAGICKXX_CFLAGS ?= $(shell pkg-config --cflags $(IMAGEMAGICK))
+export IMAGEMAGICKXX_LIBS ?= $(shell pkg-config --libs $(IMAGEMAGICK)) -L$(HOMEBREW_PREFIX)/lib
+endif
 
 DOCKER_BASE_IMAGE = docker.io/ocrd/core:v3.3.0
 DOCKER_TAG ?= ocrd/olena
@@ -44,8 +52,10 @@ $(OLENA_DIR)/configure: repo/olena
 	cd "$(OLENA_DIR)" && autoreconf -i
 
 deps-ubuntu:
+ifeq ($(HOMEBREW_IM),)
 	apt-get -y install --no-install-recommends \
 		git libmagick++-dev libgraphicsmagick++1-dev libboost-dev
+endif
 
 check_pkg_config = \
 	if ! pkg-config --modversion $(1) >/dev/null 2>/dev/null;then\
@@ -61,9 +71,11 @@ check_config_status = \
 	fi;
 
 deps-check:
+ifeq ($(HOMEBREW_IM),)
 	$(call check_pkg_config,Magick++-im6,libmagick++-6.q16-dev)
 	$(call check_pkg_config,GraphicsMagick++,libgraphicsmagick++1-dev)
 	$(call check_config_status,BOOST,libboost-dev)
+endif
 
 deps: #deps-ubuntu
 	command -v scribo-cli >/dev/null 2>&1 && \
